@@ -1117,7 +1117,7 @@ impl<T> NotNan<T> {
     }
 }
 
-impl<T: Float> AsRef<T> for NotNan<T> {
+impl<T> AsRef<T> for NotNan<T> {
     #[inline]
     fn as_ref(&self) -> &T {
         &self.0
@@ -1139,7 +1139,7 @@ impl Borrow<f64> for NotNan<f64> {
 }
 
 #[allow(clippy::derive_ord_xor_partial_ord)]
-impl<T: Float> Ord for NotNan<T> {
+impl<T: PartialOrd> Ord for NotNan<T> {
     fn cmp(&self, other: &NotNan<T>) -> Ordering {
         match self.partial_cmp(other) {
             Some(ord) => ord,
@@ -1161,7 +1161,7 @@ impl<T: Float> Hash for NotNan<T> {
     }
 }
 
-impl<T: Float + fmt::Display> fmt::Display for NotNan<T> {
+impl<T: fmt::Display> fmt::Display for NotNan<T> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
@@ -1241,7 +1241,7 @@ impl From<NotNan<f32>> for NotNan<f64> {
     }
 }
 
-impl<T: Float> Deref for NotNan<T> {
+impl<T> Deref for NotNan<T> {
     type Target = T;
 
     #[inline]
@@ -1250,9 +1250,9 @@ impl<T: Float> Deref for NotNan<T> {
     }
 }
 
-impl<T: Float + PartialEq> Eq for NotNan<T> {}
+impl<T: PartialEq> Eq for NotNan<T> {}
 
-impl<T: Float> PartialEq<T> for NotNan<T> {
+impl<T: PartialEq> PartialEq<T> for NotNan<T> {
     #[inline]
     fn eq(&self, other: &T) -> bool {
         self.0 == *other
@@ -2020,7 +2020,7 @@ mod impl_rkyv {
     use rkyv::bytecheck::CheckBytes;
 
     #[cfg(feature = "rkyv_ck")]
-    impl<C: ?Sized, T: Float + CheckBytes<C>> CheckBytes<C> for OrderedFloat<T> {
+    impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for OrderedFloat<T> {
         type Error = Infallible;
 
         #[inline]
@@ -2030,12 +2030,17 @@ mod impl_rkyv {
     }
 
     #[cfg(feature = "rkyv_ck")]
-    impl<C: ?Sized, T: Float + CheckBytes<C>> CheckBytes<C> for NotNan<T> {
+    impl<C: ?Sized, T: PartialEq + CheckBytes<C>> CheckBytes<C> for NotNan<T> {
         type Error = FloatIsNan;
 
         #[inline]
         unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
-            Self::new(*(value as *const T)).map(|_| &*value)
+            let v = &*(value as *const T);
+            if v != v {
+                Err(FloatIsNan)
+            } else {
+                Ok(&*value)
+            }
         }
     }
 
